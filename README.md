@@ -1,6 +1,6 @@
 # **自动复制选中文本并解除网页复制限制**
 =============================
-### 介绍
+## 介绍
 
 本代码是一个自动复制选中文本和解除复制限制按钮的脚本，旨在帮助用户在网页中快速复制选中文本，并且可以根据需要启用或禁用解除复制限制和自动复制功能。
 **请注意，使用按钮在右下角，安装后刷新所在页面。**
@@ -14,15 +14,23 @@
 * 启用/禁用自动复制：按钮可以根据用户的需求启用或禁用自动复制功能。
 * 自动检测前景色：按钮可以自动检测前景色，并根据颜色亮度返回黑色或白色。
 
-### 使用方法
-
-1. 安装 GreaseMonkey 插件。
+## 使用方法
+**为使用本脚本，您需要油猴插件，该插件可在您浏览器的扩充套件处找到。**
+1. 安装 **GreaseMonkey 插件**。
 2. 将代码复制到 GreaseMonkey 的脚本编辑器中。
 3. 保存脚本并 reload 网页。
 4. 在网页中选中文本时，按钮将自动复制选中文本到剪贴板。
 
-### 欢迎反馈
+## 油猴或篡改猴的下载地址
+1. **firfox**:https://addons.mozilla.org/firefox/addon/greasemonkey/
+2. **官网**：https://www.tampermonkey.net/
+3. **chrome**:https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo
 
+## 支持的浏览器
+1. firefox
+2. edge
+3. chrome
+4. etc.
 
 ## 版本2.3
 
