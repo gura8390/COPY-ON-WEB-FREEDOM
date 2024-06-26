@@ -240,12 +240,10 @@
     copyState.button.addEventListener('click', function() {
         if (copyState.enabled) {
             disableCopy();
-            copyState.button.innerHTML = '解除复制限制并启用自动复制';
-            copyState.button.querySelector('span').innerHTML = '🔓';
+            copyState.button.innerHTML = '🔓解除复制限制并启用自动复制';
         } else {
             enableCopy();
-            copyState.button.innerHTML = '禁用复制功能';
-            copyState.button.querySelector('span').innerHTML = '🔒';
+            copyState.button.innerHTML = '🔒禁用复制功能';
         }
         copyState.enabled = !copyState.enabled;
     });
@@ -254,7 +252,7 @@
     if (copyState.settings.autoEnable) {
         enableCopy();
         copyState.enabled = true;
-        copyState.button.innerHTML = '禁用复制功能';
-        copyState.button.querySelector('span').innerHTML = '🔒';
+        copyState.button.innerHTML = '🔒禁用复制功能';
+
     }
 })();
