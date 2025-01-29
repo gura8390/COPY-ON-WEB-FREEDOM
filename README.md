@@ -37,23 +37,10 @@ Tested platforms include Yuque, QQ Docs, 360 Baidu Wenku, Docin, Tencent Docs, D
 - **Chrome**: [TamperMonkey](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
 
 ### Version Updates
-
-**Version 2.3**
-- **Button Style Optimization**: More harmonious color matching, added rounded corners and hover effects.
-- **Button Position Optimization**: Placed the button at the bottom right or bottom left corner of the page, with added icons.
-- **Prompt Information Optimization**: More user-friendly prompt messages and custom prompt box styles.
-- **Overall Layout Optimization**: Placed the button and prompt messages in a small floating panel.
-
-**Version 2.1**
-- **Fixed Auto-Copy Logic**: Fixed the issue where auto-copy would not work initially, ensuring the feature works after being enabled.
-- **Added More Copy Restriction Detection**: Added handling for document.oncopy, document.oncut, document.onpaste events.
-- **Added More Framework Support**: Support for object and embed tags.
-- **Added More Style Restriction Detection**: Added handling for pointer-events and -webkit-touch-callout styles.
-- **Custom Copy Behavior**: Allows users to choose the format of the copied text: plain text, HTML, link.
-- **Custom Prompt Messages**: Displays custom prompt messages on copy success or failure.
-- **Auto-Enable Feature**: The script can automatically enable or disable features based on user settings.
-- **Improved Configuration Options**: Manage more configuration options through the copyState.settings object.
-- **Detailed Documentation and Comments**: Added more comments to help other developers understand the script's workings and usage.
+**Version 3.0**  
+You can now adjust the following settings through the console menu without taking up valuable screen space:  
+Copy format, button enable/disable, and function adjustments in the control menu.  
+The interface now fully supports both Chinese and English. More languages will be available in future updates.
 
 Feedback and suggestions are welcome to further optimize the user experience.
 
@@ -93,21 +80,10 @@ Feedback and suggestions are welcome to further optimize the user experience.
 
 ### 版本更新
 
-**版本2.3**
-- **按钮样式优化**：使用更加协调的颜色搭配，增加圆角和悬停效果。
-- **按钮位置优化**：将按钮放置在页面右下角或左下角，并添加小图标。
-- **提示信息优化**：使用更加友好的提示信息和自定义提示框样式。
-- **整体布局优化**：将按钮和提示信息放置在一个小的浮动面板中。
+**版本3.0**
+**现在你可以透过控制台的菜单栏调整以下设置而不再需要占用宝贵的屏幕空间：
+复制格式，按钮是否启用，以及在控制菜单中调节功能是否启用。
+现在界面将完美适配中文和英文。更多语言仍需等待后续版本。**
 
-**版本2.1**
-- **修复自动复制逻辑**：修复初始状态下不会自动复制的问题，确保启用功能后能够自动复制。
-- **添加更多的复制限制检测**：增加对 document.oncopy、document.oncut、document.onpaste 等事件的处理。
-- **添加更多的框架支持**：支持 object 和 embed 标签的处理。
-- **添加更多的样式限制检测**：增加对 pointer-events 和 -webkit-touch-callout 样式的处理。
-- **自定义复制行为**：允许用户选择复制文本的格式：纯文本、HTML、链接。
-- **自定义提示信息**：在复制成功或失败时显示自定义的提示信息。
-- **自动启用功能**：根据用户设置，脚本可以自动启用或禁用功能。
-- **改进的配置选项**：通过 copyState.settings 对象管理更多配置选项。
-- **详细的文档和注释**：增加了更多注释，帮助其他开发者理解脚本的工作原理和使用方法。
 
 欢迎反馈和建议，以进一步优化用户体验。
