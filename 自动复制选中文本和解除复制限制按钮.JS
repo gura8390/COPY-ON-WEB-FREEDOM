@@ -1,66 +1,107 @@
 // ==UserScript==
-// @name        自动复制选中文本和解除复制限制按钮
-// @name:zh     自动复制选中文本和解除复制限制按钮
-// @name:en     Automatic Copy Selected Text and Remove Copy Restrictions Button
+// @name        自动复制选中文本和解除复制限制
+// @name:zh     自动复制选中文本和解除复制限制
+// @name:en     Auto-Copy Selected Text and Remove Website Copy Restrictions
 // @namespace   http://tampermonkey.net/
-// @version     2.3
-// @description 在任意网站选中任意文本时自动复制，并添加一个按钮以启用/禁用解除网站的复制限制和自动复制功能
-// @description:en Automatically copy selected text on any website and add a button to enable/disable unlocking copy restrictions and auto-copy functionality
+// @version     3.0
+// @description 在任意网站选中任意文本时自动复制,并提供设置选项以启用/禁用解除网站的复制限制和自动复制功能,以及显示/隐藏按钮
+// @description:en Automatically copy selected text on any website and provide settings to enable/disable unlocking copy restrictions, auto-copy functionality, and show/hide button
 // @author      lbihhe
 // @license     MIT
+// @icon        https://img.icons8.com/nolan/64/password1.png
 // @match       *://*/*
-// @grant       none
-// @downloadURL https://update.greasyfork.org/scripts/497808/%E8%87%AA%E5%8A%A8%E5%A4%8D%E5%88%B6%E9%80%89%E4%B8%AD%E6%96%87%E6%9C%AC%E5%92%8C%E8%A7%A3%E9%99%A4%E5%A4%8D%E5%88%B6%E9%99%90%E5%88%B6%E6%8C%89%E9%92%AE.user.js
-// @updateURL https://update.greasyfork.org/scripts/497808/%E8%87%AA%E5%8A%A8%E5%A4%8D%E5%88%B6%E9%80%89%E4%B8%AD%E6%96%87%E6%9C%AC%E5%92%8C%E8%A7%A3%E9%99%A4%E5%A4%8D%E5%88%B6%E9%99%90%E5%88%B6%E6%8C%89%E9%92%AE.meta.js
+// @grant       GM_getValue
+// @grant       GM_setValue
+// @grant       GM_registerMenuCommand
+// @grant       GM_xmlhttpRequest
+// @run-at      document-end
+// @downloadURL https://update.greasyfork.org/scripts/497808/%E8%87%AA%E5%8A%A8%E5%A4%8D%E5%88%B6%E9%80%89%E4%B8%AD%E6%96%87%E6%9C%AC%E5%92%8C%E8%A7%A3%E9%99%A4%E5%A4%8D%E5%88%B6%E9%99%90%E5%88%B6.user.js
+// @updateURL https://update.greasyfork.org/scripts/497808/%E8%87%AA%E5%8A%A8%E5%A4%8D%E5%88%B6%E9%80%89%E4%B8%AD%E6%96%87%E6%9C%AC%E5%92%8C%E8%A7%A3%E9%99%A4%E5%A4%8D%E5%88%B6%E9%99%90%E5%88%B6.meta.js
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    // 定义一个对象来存储状态和按钮
-    var copyState = {
-        enabled: false,
-        button: createButton(),
-        settings: {
-            copyFormat: 'text',// 复制格式: text, html, link
-            showAlert: true,// 是否显示提示信息
-            autoEnable: false// 是否自动启用脚本
+    let path = "";
+    const TEXT_PLAIN = "text/plain";
+    const TEXT_HTML = "text/html";
+    const COPY = "copy";
+
+    // 定义处理doc88.com的对象
+    const website_rule_doc88 = {
+        regexp: /.*doc88\.com\/.+/,
+        init: () => {
+            const style = document.createElement('style');
+            style.id = "copy-element-hide";
+            style.innerHTML = "#left-menu{display: none !important;}";
+            document.head.appendChild(style);
+
+            GM_xmlhttpRequest({
+                method: "GET",
+                url: "https://res3.doc88.com/resources/js/modules/main-v2.min.js?v=2.56",
+                onload: function(response) {
+                    const result = /\("#cp_textarea"\).val\(([\S]*?)\);/.exec(response.responseText);
+                    if (result) {
+                        path = result[1];
+                    }
+                }
+            });
+
+            window.addEventListener("load", () => {
+                const cpFn = unsafeWindow.copyText.toString();
+                const fnResult = /<textarea[\s\S]*?>'\+([\S]*?)\+"<\/textarea>/.exec(cpFn);
+                if (fnResult) {
+                    path = fnResult[1];
+                }
+            });
+        },
+        getSelectedText: () => {
+            let select = unsafeWindow;
+            path.split(".")
+                .forEach((v) => {
+                    select = select[v];
+                });
+            if (!select) {
+                unsafeWindow.Config.vip = 1;
+                unsafeWindow.Config.logined = 1;
+                document.getElementById("copy-element-hide").remove();
+            }
+            return select;
         }
     };
 
-    // 创建按钮
-    function createButton() {
-        var button = document.createElement('button');
-        button.innerHTML = '解除复制限制并启用自动复制';
-        button.style.position = 'fixed';
-        button.style.bottom = '20px';
-        button.style.right = '20px';
-        button.style.zIndex = '9999';
-        button.style.padding = '10px 15px';
-        button.style.backgroundColor = 'rgba(173, 216, 230, 0.9)';
-        button.style.color = '#000';
-        button.style.border = 'none';
-        button.style.borderRadius = '10px';
-        button.style.cursor = 'pointer';
-        button.style.fontFamily = '微软雅黑, Arial, sans-serif';
-        button.style.fontSize = '14px';
-        button.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-        button.style.transition = 'background-color 0.3s, transform 0.3s';
-        button.onmouseover = function() {
-            button.style.backgroundColor = 'rgba(135, 206, 235, 0.9)';
-            button.style.transform = 'scale(1.05)';
-        };
-        button.onmouseout = function() {
-            button.style.backgroundColor = 'rgba(173, 216, 230, 0.9)';
-            button.style.transform = 'scale(1)';
-        };
-        var icon = document.createElement('span');
-        icon.innerHTML = '🔓';
-        icon.style.marginRight = '8px';
-        button.prepend(icon);
-        document.body.appendChild(button);
-        return button;
+    // 判断当前页面是否为doc88.com
+    if (website_rule_doc88.regexp.test(window.location.href)) {
+        website_rule_doc88.init();
     }
+
+    // 语言检测
+    var userLanguage = navigator.language || navigator.userLanguage;
+    var isChinese = userLanguage.startsWith('zh');
+
+    // 文本定义
+    var text = {
+        enableCopy: isChinese ? '🔓解除复制限制并启用自动复制' : '🔓Enable Copy Restrictions and Auto Copy',
+        disableCopy: isChinese ? '🔒禁用复制功能及复制限制' : '🔒Disable Copy Restrictions and Auto Copy',
+        copyTextAlert: isChinese ? '选中文本已复制到剪贴板' : 'Selected text copied to clipboard',
+        copyHTMLAlert: isChinese ? '选中的 HTML 已复制到剪贴板' : 'Selected HTML copied to clipboard',
+        copyFailureAlert: isChinese ? '复制失败' : 'Copy failed',
+        copyExceptionAlert: isChinese ? '复制过程中出现异常: ' : 'Exception during copy: ',
+        invalidCopyFormatAlert: isChinese ? '无效的复制格式，保留当前设置。' : 'Invalid copy format, retaining current settings.',
+        copyFormatPrompt: isChinese ? '请选择复制格式（text: 纯文本, html: HTML, link: 链接和文本）:' : 'Please select copy format (text: Plain text, html: HTML, link: Link and text):',
+    };
+
+    // 读取存储的设置
+    var copyState = {
+        enabled: GM_getValue('enabled', false),
+        showButton: GM_getValue('showButton', true),
+        copyFormat: GM_getValue('copyFormat', 'text'),
+        showAlert: GM_getValue('showAlert', true)
+    };
+
+    // 创建按钮
+    var button = createButton();
+    copyState.button = button;
 
     // 停止事件传播的处理函数
     function stopPropagation(e) {
@@ -69,17 +110,21 @@
 
     // 自动复制选中文本的处理函数
     function autoCopyHandler() {
-        if (copyState.enabled) {
-            var selectedText = window.getSelection().toString().trim();
-            if (selectedText) {
-                if (copyState.settings.copyFormat === 'text') {
-                    copyTextToClipboard(selectedText);
-                } else if (copyState.settings.copyFormat === 'html') {
-                    copyHTMLToClipboard(selectedText);
-                } else if (copyState.settings.copyFormat === 'link') {
-                    var url = window.location.href;
-                    copyTextToClipboard(`${selectedText}\n${url}`);
-                }
+        var selectedText;
+        if (website_rule_doc88.regexp.test(window.location.href)) {
+            selectedText = website_rule_doc88.getSelectedText();
+        } else {
+            selectedText = window.getSelection().toString().trim();
+        }
+
+        if (selectedText) {
+            if (copyState.copyFormat === 'text') {
+                copyTextToClipboard(selectedText);
+            } else if (copyState.copyFormat === 'html') {
+                copyHTMLToClipboard(selectedText);
+            } else if (copyState.copyFormat === 'link') {
+                var url = window.location.href;
+                copyTextToClipboard(`${selectedText}\n${url}`);
             }
         }
     }
@@ -103,12 +148,12 @@
         try {
             var successful = document.execCommand('copy');
             if (successful) {
-                showAlert('选中文本已复制到剪贴板');
+                showAlert(text.copyTextAlert);
             } else {
-                showAlert('复制失败');
+                showAlert(text.copyFailureAlert);
             }
         } catch (err) {
-            showAlert('复制过程中出现异常: ' + err);
+            showAlert(text.copyExceptionAlert + err);
         }
         document.body.removeChild(tempTextarea);
     }
@@ -136,19 +181,19 @@
         try {
             var successful = document.execCommand('copy');
             if (successful) {
-                showAlert('选中的 HTML 已复制到剪贴板');
+                showAlert(text.copyHTMLAlert);
             } else {
-                showAlert('复制 HTML 失败');
+                showAlert(text.copyFailureAlert);
             }
         } catch (err) {
-            showAlert('复制 HTML 过程中出现异常: ' + err);
+            showAlert(text.copyExceptionAlert + err);
         }
         document.body.removeChild(tempDiv);
     }
 
     // 显示提示信息
     function showAlert(message) {
-        if (copyState.settings.showAlert) {
+        if (copyState.showAlert) {
             var alertBox = document.createElement('div');
             alertBox.innerText = message;
             alertBox.style.position = 'fixed';
@@ -222,37 +267,96 @@
         });
 
         // 移除 CSS 样式限制
-        var style = document.querySelector('style');
-        if (style) {
-            document.head.removeChild(style);
-        }
-
-        // 恢复默认 body 标签的 oncontextmenu 属性
-        if (document.body) {
-            document.body.oncontextmenu = null;
+        var styles = document.getElementsByTagName('style');
+        for (var i = 0; i < styles.length; i++) {
+            if (styles[i].innerHTML.includes('-webkit-user-select: auto !important')) {
+                styles[i].parentNode.removeChild(styles[i]);
+            }
         }
 
         // 移除鼠标抬起事件监听器
         document.removeEventListener('mouseup', autoCopyHandler, true);
     }
 
-    // 按钮点击事件 - 启用/禁用解除复制限制和自动复制
-    copyState.button.addEventListener('click', function() {
+    // 创建按钮的函数
+    function createButton() {
+        var button = document.createElement('button');
+        button.innerHTML = text.enableCopy;
+        button.style.position = 'fixed';
+        button.style.bottom = '20px';
+        button.style.right = '20px';
+        button.style.zIndex = '9999';
+        button.style.padding = '10px 15px';
+        button.style.backgroundColor = 'rgba(173, 216, 230, 0.9)';
+        button.style.color = '#000';
+        button.style.border = 'none';
+        button.style.borderRadius = '10px';
+        button.style.cursor = 'pointer';
+        button.style.fontFamily = '微软雅黑, Arial, sans-serif';
+        button.style.fontSize = '14px';
+        button.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+        button.style.transition = 'background-color 0.3s, transform 0.3s';
+        button.onmouseover = function() {
+            button.style.backgroundColor = 'rgba(135, 206, 235, 0.9)';
+            button.style.transform = 'scale(1.05)';
+        };
+        button.onmouseout = function() {
+            button.style.backgroundColor = 'rgba(173, 216, 230, 0.9)';
+            button.style.transform = 'scale(1)';
+        };
+        button.addEventListener('click', function() {
+            toggleCopyState();
+        });
+        if (copyState.showButton) {
+            document.body.appendChild(button);
+        }
+        return button;
+    }
+
+    // 切换复制状态的函数
+    function toggleCopyState() {
         if (copyState.enabled) {
             disableCopy();
-            copyState.button.innerHTML = '🔓解除复制限制并启用自动复制';
+            copyState.button.innerHTML = text.enableCopy;
         } else {
             enableCopy();
-            copyState.button.innerHTML = '🔒禁用复制功能';
+            copyState.button.innerHTML = text.disableCopy;
         }
         copyState.enabled = !copyState.enabled;
+        GM_setValue('enabled', copyState.enabled);
+    }
+
+    // 设置自动复制功能开关
+    GM_registerMenuCommand(text.enableCopy, function() {
+        toggleCopyState();
     });
 
-    // 自动启用功能
-    if (copyState.settings.autoEnable) {
-        enableCopy();
-        copyState.enabled = true;
-        copyState.button.innerHTML = '🔒禁用复制功能';
+    // 设置按钮显示开关
+    GM_registerMenuCommand(isChinese ? '设置显示解除复制限制按钮' : 'Toggle Show Copy Restrictions Button', function() {
+        copyState.showButton = !copyState.showButton;
+        GM_setValue('showButton', copyState.showButton);
+        if (copyState.showButton) {
+            document.body.appendChild(button);
+        } else {
+            if (button.parentNode) {
+                button.parentNode.removeChild(button);
+            }
+        }
+    });
 
-    }
+    // 设置复制格式
+    GM_registerMenuCommand(isChinese ? '设置复制格式' : 'Set Copy Format', function() {
+        var copyFormatOptions = ['text', 'html', 'link'];
+        var copyFormat = prompt(text.copyFormatPrompt, copyState.copyFormat);
+
+        if (copyFormatOptions.includes(copyFormat)) {
+            copyState.copyFormat = copyFormat;
+            GM_setValue('copyFormat', copyState.copyFormat);
+        } else {
+            alert(text.invalidCopyFormatAlert);
+        }
+    });
+
+    // 初始状态禁用自动复制功能
+    disableCopy();
 })();
