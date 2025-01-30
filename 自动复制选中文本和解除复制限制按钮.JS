@@ -2,10 +2,14 @@
 // @name        自动复制选中文本和解除复制限制
 // @name:zh     自动复制选中文本和解除复制限制
 // @name:en     Auto-Copy Selected Text and Remove Website Copy Restrictions
+// @name:ja     自動選択テキストコピーとウェブコピー制限解除
+// @name:es     Copiar texto seleccionado automáticamente y eliminar restricciones de copia en la web
 // @namespace   http://tampermonkey.net/
-// @version     3.0
+// @version     3.1
 // @description 在任意网站选中任意文本时自动复制,并提供设置选项以启用/禁用解除网站的复制限制和自动复制功能,以及显示/隐藏按钮
 // @description:en Automatically copy selected text on any website and provide settings to enable/disable unlocking copy restrictions, auto-copy functionality, and show/hide button
+// @description:ja 任意のウェブサイトで選択したテキストを自動的にコピーし、コピー制限を解除する設定を提供
+// @description:es Copia automáticamente el texto seleccionado en cualquier sitio web y proporciona opciones para habilitar/deshabilitar la eliminación de restricciones de copia y la función de auto-copia
 // @author      lbihhe
 // @license     MIT
 // @icon        https://img.icons8.com/nolan/64/password1.png
@@ -74,22 +78,64 @@
     if (website_rule_doc88.regexp.test(window.location.href)) {
         website_rule_doc88.init();
     }
+// 先判定用户语言
+var userLanguage = navigator.language || navigator.userLanguage;
+var language = userLanguage.startsWith('zh') ? 'zh' : (userLanguage.startsWith('ja') ? 'ja' : (userLanguage.startsWith('es') ? 'es' : 'en'));
 
-    // 语言检测
-    var userLanguage = navigator.language || navigator.userLanguage;
-    var isChinese = userLanguage.startsWith('zh');
+// 然后定义文本对象，根据已判定的语言来选择对应的文本
+var text = {
+    enableCopy: {
+        'zh': '🔓解除复制限制并启用自动复制',
+        'en': '🔓Enable Copy Restrictions and Auto Copy',
+        'ja': '🔓コピー制限を解除し、自動コピーを有効化',
+        'es': '🔓Habilitar restricciones de copia y auto-copia'
+  }[language],
+    disableCopy: {
+        'zh': '🔒禁用复制功能及复制限制',
+        'en': '🔒Disable Copy Restrictions and Auto Copy',
+        'ja': '🔒コピー制限と自動コピーを無効にする',
+        'es': '🔒Deshabilitar restricciones de copia y auto-copia'
+  }[language],
+    copyTextAlert: {
+        'zh': '选中文本已复制到剪贴板',
+        'en': 'Selected text copied to clipboard',
+        'ja': '選択したテキストがクリップボードにコピーされました',
+        'es': 'Texto seleccionado copiado al portapapeles'
+  }[language] || '成功',
+    copyHTMLAlert: {
+        'zh': '选中的 HTML 已复制到剪贴板',
+        'en': 'Selected HTML copied to clipboard',
+        'ja': '選択したHTMLがクリップボードにコピーされました',
+        'es': 'HTML seleccionado copiado al portapapeles'
+    }[language],
+    copyFailureAlert: {
+        'zh': '复制失败',
+        'en': 'Copy failed',
+        'ja': 'コピー失敗',
+        'es': 'Error al copiar'
+    }[language],
+    copyExceptionAlert: {
+        'zh': '复制过程中出现异常: ',
+        'en': 'Exception during copy: ',
+        'ja': 'コピー中に例外が発生しました: ',
+        'es': 'Excepción durante la copia: '
+    }[language],
+    invalidCopyFormatAlert: {
+        'zh': '无效的复制格式，保留当前设置。',
+        'en': 'Invalid copy format, retaining current settings.',
+        'ja': '無効なコピー形式です。現在の設定を保持します。',
+        'es': 'Formato de copia no válido, se mantienen los ajustes actuales.'
+    }[language],
+    copyFormatPrompt: {
+        'zh': '请选择复制格式（text: 纯文本, html: HTML, link: 链接和文本）:',
+        'en': 'Please select copy format (text: Plain text, html: HTML, link: Link and text):',
+        'ja': 'コピー形式を選択してください（text: プレーンテキスト, html: HTML, link: リンクとテキスト）:',
+        'es': 'Seleccione el formato de copia (text: Texto plano, html: HTML, link: Enlace y texto):'
+    }[language]
+};
 
-    // 文本定义
-    var text = {
-        enableCopy: isChinese ? '🔓解除复制限制并启用自动复制' : '🔓Enable Copy Restrictions and Auto Copy',
-        disableCopy: isChinese ? '🔒禁用复制功能及复制限制' : '🔒Disable Copy Restrictions and Auto Copy',
-        copyTextAlert: isChinese ? '选中文本已复制到剪贴板' : 'Selected text copied to clipboard',
-        copyHTMLAlert: isChinese ? '选中的 HTML 已复制到剪贴板' : 'Selected HTML copied to clipboard',
-        copyFailureAlert: isChinese ? '复制失败' : 'Copy failed',
-        copyExceptionAlert: isChinese ? '复制过程中出现异常: ' : 'Exception during copy: ',
-        invalidCopyFormatAlert: isChinese ? '无效的复制格式，保留当前设置。' : 'Invalid copy format, retaining current settings.',
-        copyFormatPrompt: isChinese ? '请选择复制格式（text: 纯文本, html: HTML, link: 链接和文本）:' : 'Please select copy format (text: Plain text, html: HTML, link: Link and text):',
-    };
+// 输出选择的语言对应的文本
+console.log(text.enableCopy); // 输出适合用户语言的文本
 
     // 读取存储的设置
     var copyState = {
@@ -191,28 +237,55 @@
         document.body.removeChild(tempDiv);
     }
 
-    // 显示提示信息
-    function showAlert(message) {
-        if (copyState.showAlert) {
-            var alertBox = document.createElement('div');
-            alertBox.innerText = message;
-            alertBox.style.position = 'fixed';
-            alertBox.style.bottom = '70px';
-            alertBox.style.right = '20px';
-            alertBox.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-            alertBox.style.color = '#fff';
-            alertBox.style.padding = '10px 15px';
-            alertBox.style.borderRadius = '10px';
-            alertBox.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-            alertBox.style.fontFamily = '微软雅黑, Arial, sans-serif';
-            alertBox.style.fontSize = '14px';
-            alertBox.style.zIndex = '9999';
-            document.body.appendChild(alertBox);
-            setTimeout(function() {
-                document.body.removeChild(alertBox);
-            }, 3000);
+   // 显示提示信息
+function showAlert(message) {
+    if (copyState.showAlert) {
+        var userLanguage = navigator.language || navigator.userLanguage;
+        var language = userLanguage.startsWith('zh') ? 'zh' :
+                       (userLanguage.startsWith('ja') ? 'ja' :
+                       (userLanguage.startsWith('es') ? 'es' : 'en'));
+
+        // 根据语言设置 message
+        var alertMessage = '';
+        switch(language) {
+            case 'zh':
+                alertMessage = '选中文本已复制到剪贴板';
+                break;
+            case 'en':
+                alertMessage = 'Selected text copied to clipboard';
+                break;
+            case 'ja':
+                alertMessage = '選択したテキストがクリップボードにコピーされました';
+                break;
+            case 'es':
+                alertMessage = 'Texto seleccionado copiado al portapapeles';
+                break;
+            default:
+                alertMessage = 'Selected text copied to clipboard'; // 默认英文
+                break;
         }
+
+        var alertBox = document.createElement('div');
+        alertBox.innerText = alertMessage; // 使用上面设置的 alertMessage
+        alertBox.style.position = 'fixed';
+        alertBox.style.bottom = '70px';
+        alertBox.style.right = '20px';
+        alertBox.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        alertBox.style.color = '#fff';
+        alertBox.style.padding = '10px 15px';
+        alertBox.style.borderRadius = '10px';
+        alertBox.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+        alertBox.style.fontFamily = '微软雅黑, Arial, sans-serif';
+        alertBox.style.fontSize = '14px';
+        alertBox.style.zIndex = '9999';
+        document.body.appendChild(alertBox);
+        setTimeout(function() {
+            document.body.removeChild(alertBox);
+        }, 3000);
     }
+}
+
+
 
     // 解除复制限制的函数
     function enableCopy() {
@@ -331,31 +404,44 @@
         toggleCopyState();
     });
 
-    // 设置按钮显示开关
-    GM_registerMenuCommand(isChinese ? '设置显示解除复制限制按钮' : 'Toggle Show Copy Restrictions Button', function() {
-        copyState.showButton = !copyState.showButton;
-        GM_setValue('showButton', copyState.showButton);
-        if (copyState.showButton) {
-            document.body.appendChild(button);
-        } else {
-            if (button.parentNode) {
-                button.parentNode.removeChild(button);
-            }
+   // 设置按钮显示开关
+GM_registerMenuCommand({
+    zh: '设置显示解除复制限制按钮',
+    en: 'Toggle Show Copy Restrictions Button',
+    ja: 'コピー制限ボタンの表示を切り替え',
+    es: 'Alternar botón de restricciones de copia'
+}[language], function() {
+    copyState.showButton = !copyState.showButton;
+    GM_setValue('showButton', copyState.showButton);
+    if (copyState.showButton) {
+        document.body.appendChild(button);
+    } else {
+        if (button.parentNode) {
+            button.parentNode.removeChild(button);
         }
-    });
+    }
+});
 
-    // 设置复制格式
-    GM_registerMenuCommand(isChinese ? '设置复制格式' : 'Set Copy Format', function() {
-        var copyFormatOptions = ['text', 'html', 'link'];
-        var copyFormat = prompt(text.copyFormatPrompt, copyState.copyFormat);
+// 设置复制格式
+GM_registerMenuCommand({
+    zh: '设置复制格式',
+    en: 'Set Copy Format',
+    ja: 'コピー形式を設定',
+    es: 'Establecer formato de copia'
+}[language], function() {
+    var copyFormatOptions = ['text', 'html', 'link'];
+    var copyFormat = prompt(text.copyFormatPrompt, copyState.copyFormat);
 
-        if (copyFormatOptions.includes(copyFormat)) {
-            copyState.copyFormat = copyFormat;
-            GM_setValue('copyFormat', copyState.copyFormat);
-        } else {
-            alert(text.invalidCopyFormatAlert);
-        }
-    });
+    if (copyFormatOptions.includes(copyFormat)) {
+        copyState.copyFormat = copyFormat;
+        GM_setValue('copyFormat', copyState.copyFormat);
+    } else {
+        alert(text.invalidCopyFormatAlert);
+    }
+});
+
+console.log(text.copyTextAlert);
+
 
     // 初始状态禁用自动复制功能
     disableCopy();
