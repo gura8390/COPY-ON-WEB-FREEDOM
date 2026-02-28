@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name        自动复制选中文本和解除复制限制
+// @name         自动复制选中文本和解除复制限制
 // @name:zh-CN  自动复制选中文本和解除复制限制
 // @name:zh-TW  自動複製選中文本和解除複製限制
 // @name:en     Auto Copy Selected Text and Remove Copy Restrictions
@@ -14,498 +14,685 @@
 // @author       lbihhe
 // @license      MIT
 // @icon         https://img.icons8.com/nolan/64/password1.png
-// @version      4.0
+// @version      5.2
 // @match        *://*/*
-// @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
-// @grant        GM_xmlhttpRequest
 // @run-at       document-start
-// @namespace    http://tampermonkey.net/
+// @namespace http://tampermonkey.net/
 // @downloadURL https://update.greasyfork.org/scripts/497808/%E8%87%AA%E5%8A%A8%E5%A4%8D%E5%88%B6%E9%80%89%E4%B8%AD%E6%96%87%E6%9C%AC%E5%92%8C%E8%A7%A3%E9%99%A4%E5%A4%8D%E5%88%B6%E9%99%90%E5%88%B6.user.js
 // @updateURL https://update.greasyfork.org/scripts/497808/%E8%87%AA%E5%8A%A8%E5%A4%8D%E5%88%B6%E9%80%89%E4%B8%AD%E6%96%87%E6%9C%AC%E5%92%8C%E8%A7%A3%E9%99%A4%E5%A4%8D%E5%88%B6%E9%99%90%E5%88%B6.meta.js
 // ==/UserScript==
 
-/*!
-MIT License
+// Changelog:
+// v5.2 - Replace fixed-position toast with a speech-bubble anchored above the panel
+//        card; bubble travels with the draggable panel; shows green (ok) or red (fail)
+//        state; auto-dismisses after 1.6 s; toastFail locale key added to all locales.
+// v5.1 - Full UI redesign: white-glass panel, amber/gold accent system,
+//        kinetic entrance / state-change animations, format badge, ripple on click,
+//        draggable panel.
 
-Copyright (c) [2024] [gura8390]
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
-
-(() => {
+(function () {
     'use strict';
 
-    /*** 国际化部分 ***/
-    const userLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
-    const language = userLang.startsWith('zh')
-      ? 'zh'
-      : userLang.startsWith('ja')
-      ? 'ja'
-      : userLang.startsWith('es')
-      ? 'es'
-      : 'en';
+    // =====================
+    // Config keys
+    // =====================
+    const CONFIG = {
+        ENABLED:  'fusion_enabled',
+        SHOW_BTN: 'fusion_show_btn',
+        FORMAT:   'fusion_format',
+        POS_X:    'fusion_pos_x',
+        POS_Y:    'fusion_pos_y',
+    };
 
-    const messages = {
+    // =====================
+    // Locale system
+    // =====================
+    const LOCALES = {
         zh: {
-            enableCopy: '🔓解除复制限制并启用自动复制',
-            disableCopy: '🔒禁用复制功能及复制限制',
-            copyTextAlert: '选中文本已复制到剪贴板',
-            copyHTMLAlert: '选中的 HTML 已复制到剪贴板',
-            copyFailureAlert: '复制失败',
-            copyExceptionAlert: '复制过程中出现异常: ',
-            invalidCopyFormatAlert: '无效的复制格式，保留当前设置。',
-            copyFormatPrompt: '请选择复制格式（text: 纯文本, html: HTML, link: 链接和文本）:',
-            toggleShowButton: '设置显示/隐藏解除复制限制按钮',
-            setCopyFormat: '设置复制格式'
+            on:          "已解鎖",
+            off:         "已停用",
+            subOn:       "自動複製 & 解除限制",
+            subOff:      "點擊以啟用功能",
+            toast:       "已複製到剪貼簿",
+            toastFail:   "複製失敗",
+            menuToggle:  "切換功能啟用/停用",
+            menuBtn:     "切換按鈕顯示",
+            menuFormat:  (f) => `切換複製格式（當前：${f}）`,
         },
         en: {
-            enableCopy: '🔓Enable Copy Restrictions and Auto Copy',
-            disableCopy: '🔒Disable Copy Restrictions and Auto Copy',
-            copyTextAlert: 'Selected text copied to clipboard',
-            copyHTMLAlert: 'Selected HTML copied to clipboard',
-            copyFailureAlert: 'Copy failed',
-            copyExceptionAlert: 'Exception during copy: ',
-            invalidCopyFormatAlert: 'Invalid copy format, retaining current settings.',
-            copyFormatPrompt: 'Please select copy format (text: Plain text, html: HTML, link: Link and text):',
-            toggleShowButton: 'Toggle Show/Hide Copy Restrictions Button',
-            setCopyFormat: 'Set Copy Format'
+            on:          "Unlocked",
+            off:         "Disabled",
+            subOn:       "Auto-copy & restrictions lifted",
+            subOff:      "Click to enable",
+            toast:       "Copied to clipboard",
+            toastFail:   "Copy failed",
+            menuToggle:  "Toggle Enable/Disable",
+            menuBtn:     "Toggle Button Visibility",
+            menuFormat:  (f) => `Cycle Copy Format (current: ${f})`,
         },
         ja: {
-            enableCopy: '🔓コピー制限を解除し、自動コピーを有効化',
-            disableCopy: '🔒コピー制限と自動コピーを無効にする',
-            copyTextAlert: '選択したテキストがクリップボードにコピーされました',
-            copyHTMLAlert: '選択したHTMLがクリップボードにコピーされました',
-            copyFailureAlert: 'コピー失敗',
-            copyExceptionAlert: 'コピー中に例外が発生しました: ',
-            invalidCopyFormatAlert: '無効なコピー形式です。現在の設定を保持します。',
-            copyFormatPrompt: 'コピー形式を選択してください（text: プレーンテキスト, html: HTML, link: リンクとテキスト）:',
-            toggleShowButton: 'コピー制限ボタンの表示/非表示切替',
-            setCopyFormat: 'コピー形式を設定'
+            on:          "有効",
+            off:         "無効",
+            subOn:       "自動コピー & 制限解除",
+            subOff:      "クリックして有効化",
+            toast:       "クリップボードにコピー済み",
+            toastFail:   "コピー失敗",
+            menuToggle:  "有効/無効を切り替え",
+            menuBtn:     "ボタン表示を切り替え",
+            menuFormat:  (f) => `コピー形式を切り替え（現在：${f}）`,
         },
-        es: {
-            enableCopy: '🔓Habilitar restricciones de copia y auto-copia',
-            disableCopy: '🔒Deshabilitar restricciones de copia y auto-copia',
-            copyTextAlert: 'Texto seleccionado copiado al portapapeles',
-            copyHTMLAlert: 'HTML seleccionado copiado al portapapeles',
-            copyFailureAlert: 'Error al copiar',
-            copyExceptionAlert: 'Excepción durante la copia: ',
-            invalidCopyFormatAlert: 'Formato de copia no válido, se mantienen los ajustes actuales.',
-            copyFormatPrompt: 'Seleccione el formato de copia (text: Texto plano, html: HTML, link: Enlace y texto):',
-            toggleShowButton: 'Alternar mostrar/ocultar botón de restricciones de copia',
-            setCopyFormat: 'Establecer formato de copia'
-        }
+        ko: {
+            on:          "활성화됨",
+            off:         "비활성화됨",
+            subOn:       "자동 복사 & 제한 해제",
+            subOff:      "클릭하여 활성화",
+            toast:       "클립보드에 복사됨",
+            toastFail:   "복사 실패",
+            menuToggle:  "기능 켜기/끄기",
+            menuBtn:     "버튼 표시 토글",
+            menuFormat:  (f) => `복사 형식 전환 (현재: ${f})`,
+        },
     };
 
-    const t = key => (messages[language] && messages[language][key]) || messages.en[key];
-    console.log(`当前语言: ${language}, 显示文本:`, t('enableCopy'));
-
-    /******** 针对特定网站（doc88.com）的处理 ********/
-    let doc88Path = "";
-    const websiteRuleDoc88 = {
-        regexp: /.*doc88\.com\/.+/,
-        init: () => {
-            const style = document.createElement('style');
-            style.id = "copy-element-hide";
-            style.textContent = "#left-menu{display: none !important;}";
-            document.head.appendChild(style);
-
-            GM_xmlhttpRequest({
-                method: "GET",
-                url: "https://res3.doc88.com/resources/js/modules/main-v2.min.js?v=2.56",
-                onload: response => {
-                    const result = /\("#cp_textarea"\).val\(([\S]*?)\);/.exec(response.responseText);
-                    if (result) {
-                        doc88Path = result[1];
-                    }
-                }
-            });
-
-            window.addEventListener("load", () => {
-                const cpFn = unsafeWindow.copyText?.toString();
-                const fnResult = cpFn && /<textarea[\s\S]*?>'\+([\S]*?)\+"<\/textarea>/.exec(cpFn);
-                if (fnResult) {
-                    doc88Path = fnResult[1];
-                }
-            });
-        },
-        getSelectedText: () => {
-            let select = unsafeWindow;
-            doc88Path.split(".").forEach(v => {
-                select = select?.[v];
-            });
-            if (!select) {
-                unsafeWindow.Config.vip = 1;
-                unsafeWindow.Config.logined = 1;
-                document.getElementById("copy-element-hide")?.remove();
-            }
-            return select;
+    function resolveLocale() {
+        const lang = navigator.language || '';
+        for (const key of Object.keys(LOCALES)) {
+            if (lang.toLowerCase().startsWith(key)) return LOCALES[key];
         }
-    };
+        return LOCALES.en;
+    }
+    const t = resolveLocale();
 
-    /******** 针对百度文库（wenku.baidu.com）的特殊优化 ********/
-    const websiteRuleWenku = {
-        regexp: /wenku\.baidu\.com\/(view|link|aggs).*/,
-        canvasDataGroup: [],
-        init: function() {
-            // 添加打印相关样式（可选）
-            const style = document.createElement("style");
-            style.textContent = `@media print { body{ display:block; } }`;
-            document.head.appendChild(style);
+    // =====================
+    // State
+    // =====================
+    let isEnabled  = GM_getValue(CONFIG.ENABLED,  true);
+    let showBtn    = GM_getValue(CONFIG.SHOW_BTN, true);
+    let copyFormat = GM_getValue(CONFIG.FORMAT,   'text');
 
-          // 获取 canvas 的原始 2D 上下文原型
-            const originObject = {
-                context2DPrototype: Object.getPrototypeOf(unsafeWindow.document.createElement("canvas").getContext("2d"))
-            };
+    const FORMAT_CYCLE  = ['text', 'link', 'html'];
+    const FORMAT_LABELS = { text: 'TXT', link: 'URL', html: 'HTML' };
+    const FORMAT_ICONS  = { text: '¶', link: '⌁', html: '</>' };
 
+    // =====================
+    // Styles — dark-glass obsidian aesthetic with amber accents
+    // =====================
+    GM_addStyle(`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
 
-            // 劫持 document.createElement，当创建 canvas 时覆盖 fillText 方法，捕获绘制文字
-            document.createElement = new Proxy(document.createElement, {
-                apply: function(target, thisArg, argumentsList) {
-                    const element = Reflect.apply(target, thisArg, argumentsList);
-                    if (argumentsList[0] === "canvas") {
-                        const tmpData = {
-                            canvas: element,
-                            data: []
-                        };
-                        const context = element.getContext("2d");
-                        const originalFillText = originObject.context2DPrototype.fillText;
-                        context.fillText = function(...args) {
-                            tmpData.data.push(args);
-                            return originalFillText.apply(this, args);
-                        };
-                        websiteRuleWenku.canvasDataGroup.push(tmpData);
-                    }
-                    return element;
-                }
-            });
-
-            // 伪造 VIP 信息，劫持全局 pageData
-            let pageData = {};
-            Object.defineProperty(unsafeWindow, "pageData", {
-                set: (v) => { pageData = v; },
-                get: function() {
-                    if (!pageData.vipInfo) pageData.vipInfo = {};
-                    pageData.vipInfo.global_svip_status = 1;
-                    pageData.vipInfo.global_vip_status = 1;
-                    pageData.vipInfo.isVip = 1;
-                    pageData.vipInfo.isWenkuVip = 1;
-                    return pageData;
-                }
-            });
-
-        },
-        getSelectedText: function() {
-            // 尝试从捕获的 canvas 数据中重构文本
-            let text = "";
-            if (this.canvasDataGroup.length > 0) {
-                this.canvasDataGroup.forEach(item => {
-                    item.data.forEach(args => {
-                        text += args[0] + " ";
-                    });
-                });
-                text = text.trim();
-            }
-            // 如果没有捕获到，则退化为正常的页面选中内容
-            if (!text) {
-                text = window.getSelection().toString().trim();
-            }
-            return text;
+        /* ── Keyframes ── */
+        @keyframes lf-enter {
+            0%   { opacity: 0; transform: translateY(16px) scale(0.92); }
+            60%  { transform: translateY(-3px) scale(1.01); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
         }
-    };
-
-    // 如果当前页面为 doc88 或百度文库，则执行相应初始化
-    if (websiteRuleDoc88.regexp.test(window.location.href)) {
-        websiteRuleDoc88.init();
-    }
-    if (websiteRuleWenku.regexp.test(window.location.href)) {
-        websiteRuleWenku.init();
-        // 百度文库页面不需要右下角复制按钮（直接抛弃）
-        // 后续 autoCopyHandler 会调用 websiteRuleWenku.getSelectedText() 来获取文本
-    }
-
-/******** 读取存储的设置 ********/
-const copyState = {
-    enabled: GM_getValue('enabled', false),
-    showButton: GM_getValue('showButton', true),
-    copyFormat: GM_getValue('copyFormat', 'text'),
-    showAlert: GM_getValue('showAlert', true)
-};
-
-/******** 全局变量 ********/
-let button = null; // 提前声明按钮变量
-
-/******** 定义切换复制状态的函数 ********/
-function toggleCopyState() {
-    if (copyState.enabled) {
-        disableCopy();
-        if (button) button.innerHTML = t('enableCopy');
-    } else {
-        enableCopy();
-        if (button) button.innerHTML = t('disableCopy');
-    }
-    copyState.enabled = !copyState.enabled;
-    GM_setValue('enabled', copyState.enabled);
-}
-
-/******** 定义其他函数 ********/
-const stopPropagation = e => e.stopPropagation();
-
-// 自动复制处理：根据当前页面分别调用特殊处理的获取文本方法
-const autoCopyHandler = () => {
-    let selectedText = "";
-    if (websiteRuleDoc88.regexp.test(window.location.href)) {
-        selectedText = websiteRuleDoc88.getSelectedText();
-    } else if (websiteRuleWenku.regexp.test(window.location.href)) {
-        selectedText = websiteRuleWenku.getSelectedText();
-    } else {
-        selectedText = window.getSelection().toString().trim();
-    }
-    if (selectedText) {
-        switch (copyState.copyFormat) {
-            case 'text':
-                copyTextToClipboard(selectedText);
-                break;
-            case 'html':
-                copyHTMLToClipboard(selectedText);
-                break;
-            case 'link':
-                copyTextToClipboard(`${selectedText}\n${window.location.href}`);
-                break;
-            default:
-                copyTextToClipboard(selectedText);
-                break;
+        @keyframes lf-pulse-ring {
+            0%   { box-shadow: 0 0 0 0 rgba(251,180,60,0.45); }
+            70%  { box-shadow: 0 0 0 10px rgba(251,180,60,0); }
+            100% { box-shadow: 0 0 0 0 rgba(251,180,60,0); }
         }
-    }
-};
+        @keyframes lf-shake {
+            0%,100% { transform: translateX(0); }
+            20%     { transform: translateX(-4px); }
+            40%     { transform: translateX(4px); }
+            60%     { transform: translateX(-3px); }
+            80%     { transform: translateX(3px); }
+        }
+        @keyframes lf-ripple {
+            0%   { transform: scale(0); opacity: 0.5; }
+            100% { transform: scale(2.8); opacity: 0; }
+        }
+        @keyframes lf-toast-in {
+            0%   { opacity: 0; transform: translateY(10px) scale(0.95); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes lf-toast-out {
+            0%   { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-6px) scale(0.95); }
+        }
+        @keyframes lf-orb-idle {
+            0%,100% { opacity: 0.7; transform: scale(1); }
+            50%     { opacity: 1;   transform: scale(1.15); }
+        }
+        @keyframes lf-badge-flip {
+            0%   { transform: rotateX(90deg); opacity: 0; }
+            100% { transform: rotateX(0deg);  opacity: 1; }
+        }
 
-const copyTextToClipboard = textContent => {
-    const tempTextarea = document.createElement('textarea');
-    Object.assign(tempTextarea.style, {
-        position: 'fixed',
-        top: '0',
-        left: '0',
-        width: '2em',
-        height: '2em',
-        padding: '0',
-        border: 'none',
-        outline: 'none',
-        boxShadow: 'none',
-        background: 'transparent'
-    });
-    tempTextarea.value = textContent;
-    document.body.appendChild(tempTextarea);
-    tempTextarea.select();
-    try {
-        const successful = document.execCommand('copy');
-        showAlert(successful ? t('copyTextAlert') : t('copyFailureAlert'));
-    } catch (err) {
-        showAlert(t('copyExceptionAlert') + err);
-    }
-    document.body.removeChild(tempTextarea);
-};
+        /* ── Panel root ── */
+        #lf-panel-root {
+            all: initial !important;
+            position: fixed !important;
+            bottom: 28px !important;
+            right: 28px !important;
+            z-index: 2147483647 !important;
+            cursor: pointer !important;
+            font-family: 'DM Sans', system-ui, sans-serif !important;
+            user-select: none !important;
+            animation: lf-enter 0.55s cubic-bezier(0.34,1.56,0.64,1) both !important;
+        }
+        #lf-panel-root.lf-dragging {
+            cursor: grabbing !important;
+            transition: none !important;
+        }
 
-const copyHTMLToClipboard = htmlContent => {
-    const tempDiv = document.createElement('div');
-    Object.assign(tempDiv.style, {
-        position: 'fixed',
-        top: '0',
-        left: '0',
-        width: '2em',
-        height: '2em',
-        padding: '0',
-        border: 'none',
-        outline: 'none',
-        boxShadow: 'none',
-        background: 'transparent'
-    });
-    tempDiv.innerHTML = htmlContent;
-    document.body.appendChild(tempDiv);
-    const range = document.createRange();
-    range.selectNodeContents(tempDiv);
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-    try {
-        const successful = document.execCommand('copy');
-        showAlert(successful ? t('copyHTMLAlert') : t('copyFailureAlert'));
-    } catch (err) {
-        showAlert(t('copyExceptionAlert') + err);
-    }
-    document.body.removeChild(tempDiv);
-};
+        /* ── Glass card ── */
+        .lf-card {
+            position: relative !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            padding: 11px 16px 11px 14px !important;
+            /* Clean white glass */
+            background: linear-gradient(135deg,
+                rgba(255,255,255,0.92) 0%,
+                rgba(245,246,250,0.96) 100%) !important;
+            backdrop-filter: blur(28px) saturate(160%) !important;
+            -webkit-backdrop-filter: blur(28px) saturate(160%) !important;
+            border-radius: 16px !important;
+            border-top: 1px solid rgba(255,255,255,0.95) !important;
+            border-left: 1px solid rgba(255,255,255,0.85) !important;
+            border-right: 1px solid rgba(180,185,200,0.35) !important;
+            border-bottom: 1px solid rgba(180,185,200,0.45) !important;
+            box-shadow:
+                0 2px 0 rgba(255,255,255,0.8) inset,
+                0 24px 48px rgba(100,110,140,0.18),
+                0 6px 16px rgba(100,110,140,0.12) !important;
+            transition: box-shadow 0.3s ease, transform 0.2s ease !important;
+            overflow: hidden !important;
+            min-width: 180px !important;
+        }
+        .lf-card:hover {
+            box-shadow:
+                0 2px 0 rgba(255,255,255,0.9) inset,
+                0 28px 56px rgba(100,110,140,0.24),
+                0 8px 20px rgba(100,110,140,0.16) !important;
+            transform: translateY(-1px) !important;
+        }
+        .lf-card:active {
+            transform: translateY(1px) scale(0.99) !important;
+        }
 
-const showAlert = message => {
-    if (!copyState.showAlert) return;
-    const alertBox = document.createElement('div');
-    alertBox.innerText = message;
-    Object.assign(alertBox.style, {
-        position: 'fixed',
-        bottom: '70px',
-        right: '20px',
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        color: '#fff',
-        padding: '10px 15px',
-        borderRadius: '10px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        fontFamily: '微软雅黑, Arial, sans-serif',
-        fontSize: '14px',
-        zIndex: '9999'
-    });
-    document.body.appendChild(alertBox);
-    setTimeout(() => alertBox.remove(), 3000);
-};
+        /* enabled state: amber glow on border */
+        .lf-card.lf-on {
+            border-top-color: rgba(255,255,255,0.95) !important;
+            border-left-color: rgba(251,180,60,0.30) !important;
+            box-shadow:
+                0 2px 0 rgba(255,255,255,0.8) inset,
+                0 24px 48px rgba(100,110,140,0.18),
+                0 6px 16px rgba(100,110,140,0.12),
+                0 0 0 1px rgba(251,180,60,0.18) !important;
+        }
+        .lf-card.lf-on:hover {
+            box-shadow:
+                0 2px 0 rgba(255,255,255,0.9) inset,
+                0 28px 56px rgba(100,110,140,0.24),
+                0 8px 20px rgba(100,110,140,0.16),
+                0 0 0 1px rgba(251,180,60,0.30) !important;
+        }
 
-const enableCopy = () => {
-    ['copy', 'cut', 'contextmenu', 'selectstart', 'mousedown', 'mouseup', 'keydown', 'keyup', 'keypress', 'oncopy', 'oncut', 'onpaste']
-        .forEach(event => document.addEventListener(event, stopPropagation, true));
+        /* ── Status orb ── */
+        .lf-orb-wrap {
+            position: relative !important;
+            width: 28px !important;
+            height: 28px !important;
+            flex-shrink: 0 !important;
+        }
+        .lf-orb {
+            width: 28px !important;
+            height: 28px !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 13px !important;
+            line-height: 1 !important;
+            transition: background 0.4s ease, box-shadow 0.4s ease !important;
+        }
+        .lf-orb.lf-on {
+            background: radial-gradient(circle at 35% 35%,
+                rgba(255,210,100,0.95),
+                rgba(230,145,20,0.9)) !important;
+            box-shadow:
+                0 0 12px rgba(251,180,60,0.7),
+                0 0 4px rgba(255,220,120,0.9) inset !important;
+            animation: lf-orb-idle 2.8s ease-in-out infinite !important;
+        }
+        .lf-orb.lf-off {
+            background: radial-gradient(circle at 35% 35%,
+                rgba(80,80,90,0.9),
+                rgba(40,40,48,0.95)) !important;
+            box-shadow: 0 0 4px rgba(0,0,0,0.5) inset !important;
+            animation: none !important;
+        }
+        /* pulse ring only when enabled */
+        .lf-orb.lf-on::after {
+            content: '' !important;
+            position: absolute !important;
+            inset: 0 !important;
+            border-radius: 50% !important;
+            animation: lf-pulse-ring 2.4s ease-out infinite !important;
+        }
 
-    const style = document.createElement('style');
-    style.type = 'text/css';
-    style.textContent = `
-        * {
-            -webkit-user-select: auto !important;
-            -moz-user-select: auto !important;
-            -ms-user-select: auto !important;
+        /* ── Text block ── */
+        .lf-text {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 1px !important;
+            flex: 1 !important;
+            min-width: 0 !important;
+        }
+        .lf-label {
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.01em !important;
+            white-space: nowrap !important;
+            transition: color 0.3s ease !important;
+        }
+        .lf-on  .lf-label { color: #b8830a !important; }
+        .lf-off .lf-label { color: rgba(90,95,115,0.9) !important; }
+
+        .lf-sub {
+            font-size: 10.5px !important;
+            font-weight: 400 !important;
+            color: rgba(130,135,155,0.85) !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            letter-spacing: 0.01em !important;
+        }
+        .lf-on .lf-sub { color: rgba(180,130,40,0.7) !important; }
+
+        /* ── Format badge ── */
+        .lf-badge {
+            font-family: 'DM Mono', monospace !important;
+            font-size: 9px !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.06em !important;
+            padding: 2px 6px !important;
+            border-radius: 5px !important;
+            flex-shrink: 0 !important;
+            transition: all 0.25s ease !important;
+            animation: lf-badge-flip 0.3s ease both !important;
+        }
+        .lf-on .lf-badge {
+            background: rgba(251,180,60,0.12) !important;
+            color: rgba(180,120,10,0.95) !important;
+            border: 1px solid rgba(251,180,60,0.35) !important;
+        }
+        .lf-off .lf-badge {
+            background: rgba(180,185,200,0.15) !important;
+            color: rgba(120,125,145,0.85) !important;
+            border: 1px solid rgba(180,185,200,0.35) !important;
+        }
+
+        /* ── Ripple ── */
+        .lf-ripple {
+            position: absolute !important;
+            border-radius: 50% !important;
+            width: 60px !important;
+            height: 60px !important;
+            background: rgba(251,180,60,0.3) !important;
+            pointer-events: none !important;
+            transform: scale(0) !important;
+            animation: lf-ripple 0.55s ease-out forwards !important;
+            margin-top: -30px !important;
+            margin-left: -30px !important;
+        }
+
+        /* ── Shake animation class ── */
+        .lf-shake { animation: lf-shake 0.35s ease !important; }
+
+        /* ── Copy-feedback bubble (anchored above the panel card) ── */
+        #lf-bubble {
+            position: absolute !important;
+            bottom: calc(100% + 10px) !important;
+            right: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 7px !important;
+            padding: 7px 13px 7px 10px !important;
+            border-radius: 10px !important;
+            font-family: 'DM Sans', system-ui, sans-serif !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            white-space: nowrap !important;
+            pointer-events: none !important;
+            /* tail pointing down-right */
+            filter: drop-shadow(0 4px 12px rgba(100,110,140,0.18)) !important;
+            opacity: 0 !important;
+            transform: translateY(4px) scale(0.96) !important;
+            transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1) !important;
+        }
+        #lf-bubble.lf-bubble-ok {
+            background: linear-gradient(135deg,
+                rgba(255,255,255,0.97) 0%,
+                rgba(245,246,250,0.99) 100%) !important;
+            border: 1px solid rgba(251,180,60,0.35) !important;
+            color: rgba(140,95,10,0.95) !important;
+        }
+        #lf-bubble.lf-bubble-fail {
+            background: linear-gradient(135deg,
+                rgba(255,255,255,0.97) 0%,
+                rgba(250,245,245,0.99) 100%) !important;
+            border: 1px solid rgba(220,80,80,0.30) !important;
+            color: rgba(170,50,50,0.95) !important;
+        }
+        /* speech-bubble tail */
+        #lf-bubble::after {
+            content: '' !important;
+            position: absolute !important;
+            bottom: -6px !important;
+            right: 18px !important;
+            width: 10px !important;
+            height: 6px !important;
+            clip-path: polygon(0 0, 100% 0, 50% 100%) !important;
+        }
+        #lf-bubble.lf-bubble-ok::after {
+            background: rgba(245,246,250,0.99) !important;
+        }
+        #lf-bubble.lf-bubble-fail::after {
+            background: rgba(250,245,245,0.99) !important;
+        }
+        #lf-bubble.lf-bubble-visible {
+            opacity: 1 !important;
+            transform: translateY(0) scale(1) !important;
+        }
+        .lf-bubble-icon {
+            width: 15px !important;
+            height: 15px !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
+            font-size: 9px !important;
+            font-style: normal !important;
+        }
+        #lf-bubble.lf-bubble-ok   .lf-bubble-icon {
+            background: rgba(251,180,60,0.15) !important;
+            border: 1px solid rgba(251,180,60,0.35) !important;
+            color: #c87d0a !important;
+        }
+        #lf-bubble.lf-bubble-fail .lf-bubble-icon {
+            background: rgba(220,80,80,0.12) !important;
+            border: 1px solid rgba(220,80,80,0.30) !important;
+            color: #b03030 !important;
+        }
+
+        /* ── Unlock override ── */
+        .lf-unlocked * {
             user-select: auto !important;
-            pointer-events: auto !important;
-            -webkit-touch-callout: default !important;
+            -webkit-user-select: auto !important;
         }
-    `;
-    document.head.appendChild(style);
+    `);
 
-    if (document.body) {
-        document.body.oncontextmenu = null;
+    // =====================
+    // Copy-feedback bubble (lives inside the panel card, floats above it)
+    // =====================
+    let bubbleEl = null;
+    let bubbleHideTimer = null;
+
+    function getBubble() {
+        // The bubble lives inside #lf-panel-root so it moves with the draggable panel.
+        if (!bubbleEl || !panel?.contains(bubbleEl)) {
+            bubbleEl = document.createElement('div');
+            bubbleEl.id = 'lf-bubble';
+            // Insert as first child so it sits in the stacking context of the card wrapper
+            // but is absolutely positioned above it via CSS.
+            panel?.insertBefore(bubbleEl, panel.firstChild);
+        }
+        return bubbleEl;
     }
 
-    const frames = [
-        ...document.getElementsByTagName('iframe'),
-        ...document.getElementsByTagName('object'),
-        ...document.getElementsByTagName('embed')
-    ];
-    frames.forEach(frame => {
+    /**
+     * Show the feedback bubble above the panel card.
+     * @param {'ok'|'fail'} kind
+     * @param {string} [customText]
+     */
+    function showBubble(kind, customText) {
+        if (!panel) return;
+        const bubble = getBubble();
+        const isOk = kind !== 'fail';
+        const icon  = isOk ? '✓' : '✕';
+        const text  = customText ?? (isOk ? t.toast : t.toastFail);
+
+        bubble.className = `lf-bubble-${isOk ? 'ok' : 'fail'}`;
+        bubble.innerHTML = `<i class="lf-bubble-icon">${icon}</i><span>${text}</span>`;
+
+        clearTimeout(bubbleHideTimer);
+        // Force reflow to restart the transition when called in quick succession.
+        void bubble.offsetWidth;
+        bubble.classList.add('lf-bubble-visible');
+
+        bubbleHideTimer = setTimeout(() => {
+            bubble.classList.remove('lf-bubble-visible');
+        }, 1600);
+    }
+
+    // =====================
+    // Clipboard
+    // =====================
+    async function execAutoCopy(content) {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            try {
+                await navigator.clipboard.writeText(content);
+                showBubble('ok');
+                return;
+            } catch (_) {}
+        }
         try {
-            const frameDoc = frame.contentWindow.document;
-            ['copy', 'cut', 'contextmenu', 'selectstart', 'mousedown', 'mouseup', 'keydown', 'keyup', 'keypress']
-                .forEach(event => frameDoc.addEventListener(event, stopPropagation, true));
-        } catch (e) {
-            console.error('无法访问框架内容:', e);
+            const ta = document.createElement('textarea');
+            ta.value = content;
+            ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            showBubble(ok ? 'ok' : 'fail');
+        } catch (_) {
+            showBubble('fail');
         }
-    });
-
-    document.addEventListener('mouseup', autoCopyHandler, true);
-};
-
-const disableCopy = () => {
-    ['copy', 'cut', 'contextmenu', 'selectstart', 'mousedown', 'mouseup', 'keydown', 'keyup', 'keypress', 'oncopy', 'oncut', 'onpaste']
-        .forEach(event => document.removeEventListener(event, stopPropagation, true));
-
-    document.querySelectorAll('style').forEach(style => {
-        if (style.textContent.includes('-webkit-user-select: auto !important')) {
-            style.remove();
-        }
-    });
-    document.removeEventListener('mouseup', autoCopyHandler, true);
-};
-
-function createButton() {
-    // 如果是百度文库页面，则不创建按钮（直接抛弃）
-    if (websiteRuleWenku.regexp.test(window.location.href)) {
-        return null;
     }
-    const btn = document.createElement('button');
-    btn.innerHTML = t('enableCopy');
-    Object.assign(btn.style, {
-        position: 'fixed',
-        bottom: '20px',
-        right: '20px',
-        zIndex: '9999',
-        padding: '10px 15px',
-        backgroundColor: 'rgba(173, 216, 230, 0.9)',
-        color: '#000',
-        border: 'none',
-        borderRadius: '10px',
-        cursor: 'pointer',
-        fontFamily: '微软雅黑, Arial, sans-serif',
-        fontSize: '14px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        transition: 'background-color 0.3s, transform 0.3s'
-    });
-    btn.addEventListener('mouseover', () => {
-        btn.style.backgroundColor = 'rgba(135, 206, 235, 0.9)';
-        btn.style.transform = 'scale(1.05)';
-    });
-    btn.addEventListener('mouseout', () => {
-        btn.style.backgroundColor = 'rgba(173, 216, 230, 0.9)';
-        btn.style.transform = 'scale(1)';
-    });
-    btn.addEventListener('click', toggleCopyState);
-    return btn;
-}
 
-/******** 菜单命令注册 ********/
-// 切换显示/隐藏按钮
-GM_registerMenuCommand(t('toggleShowButton'), () => {
-    copyState.showButton = !copyState.showButton;
-    GM_setValue('showButton', copyState.showButton);
-    if (copyState.showButton) {
-        // 如果按钮不存在则创建，否则将按钮添加到 DOM 中
-        if (!button) {
-            button = createButton();
-            copyState.button = button;
-        } else if (button && !document.contains(button)) {
-            document.body.appendChild(button);
+    // =====================
+    // Core restriction-removal
+    // =====================
+    const eventsToBlock = ['contextmenu', 'copy', 'selectstart', 'cut', 'dragstart'];
+    const preventAction = (e) => { if (isEnabled) e.stopPropagation(); };
+    let copyTimer = null;
+
+    const mouseUpListener = (e) => {
+        if (!isEnabled) return;
+        if (panel && panel.contains(e.target)) return;
+        clearTimeout(copyTimer);
+        copyTimer = setTimeout(() => {
+            const sel = (e.target?.ownerDocument || document).getSelection();
+            if (!sel) return;
+            const text = sel.toString().trim();
+            if (!text) return;
+
+            let finalStr = text;
+            if (copyFormat === 'link') {
+                finalStr = `${text}\n${location.href}`;
+            } else if (copyFormat === 'html') {
+                const frag = document.createDocumentFragment();
+                for (let i = 0; i < sel.rangeCount; i++) frag.appendChild(sel.getRangeAt(i).cloneContents());
+                const wrapper = document.createElement('div');
+                wrapper.appendChild(frag);
+                finalStr = wrapper.innerHTML;
+            }
+            execAutoCopy(finalStr);
+        }, 300);
+    };
+
+    const updateFunctionalState = (active) => {
+        const html = document.documentElement;
+        if (active) {
+            html.classList.add('lf-unlocked');
+            eventsToBlock.forEach(ev => document.addEventListener(ev, preventAction, true));
+            document.addEventListener('mouseup', mouseUpListener);
+        } else {
+            html.classList.remove('lf-unlocked');
+            eventsToBlock.forEach(ev => document.removeEventListener(ev, preventAction, true));
+            document.removeEventListener('mouseup', mouseUpListener);
         }
+    };
+
+    // =====================
+    // Drag-to-reposition
+    // =====================
+    function makeDraggable(el) {
+        let startX, startY, startRight, startBottom, dragged = false;
+
+        const savedX = GM_getValue(CONFIG.POS_X, null);
+        const savedY = GM_getValue(CONFIG.POS_Y, null);
+        if (savedX !== null) { el.style.right = savedX + 'px'; el.style.bottom = savedY + 'px'; }
+
+        el.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            startX = e.clientX; startY = e.clientY;
+            const r = el.getBoundingClientRect();
+            startRight  = window.innerWidth  - r.right;
+            startBottom = window.innerHeight - r.bottom;
+            dragged = false;
+
+            const onMove = (ev) => {
+                const dx = ev.clientX - startX;
+                const dy = ev.clientY - startY;
+                if (Math.abs(dx) + Math.abs(dy) > 3) {
+                    dragged = true;
+                    el.classList.add('lf-dragging');
+                    el.style.right  = Math.max(0, startRight  - dx) + 'px';
+                    el.style.bottom = Math.max(0, startBottom + dy) + 'px';
+                }
+            };
+            const onUp = (ev) => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                el.classList.remove('lf-dragging');
+                if (dragged) {
+                    GM_setValue(CONFIG.POS_X, parseFloat(el.style.right));
+                    GM_setValue(CONFIG.POS_Y, parseFloat(el.style.bottom));
+                    ev.stopPropagation();
+                }
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+
+        // Prevent click from firing after a drag
+        el.addEventListener('click', (e) => { if (dragged) { e.stopImmediatePropagation(); dragged = false; } }, true);
+    }
+
+    // =====================
+    // Panel UI
+    // =====================
+    let panel = null;
+    let panelMounted = false;
+
+    const renderPanel = () => {
+        if (!showBtn) {
+            panel?.remove(); panel = null; panelMounted = false; return;
+        }
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.id = 'lf-panel-root';
+
+            panel.addEventListener('click', (e) => {
+                e.preventDefault(); e.stopPropagation();
+
+                // Spawn ripple at click position
+                const rect = panel.querySelector('.lf-card')?.getBoundingClientRect();
+                if (rect) {
+                    const ripple = document.createElement('div');
+                    ripple.className = 'lf-ripple';
+                    ripple.style.left = (e.clientX - rect.left) + 'px';
+                    ripple.style.top  = (e.clientY - rect.top)  + 'px';
+                    panel.querySelector('.lf-card').appendChild(ripple);
+                    setTimeout(() => ripple.remove(), 600);
+                }
+
+                isEnabled = !isEnabled;
+                GM_setValue(CONFIG.ENABLED, isEnabled);
+                updateFunctionalState(isEnabled);
+                refreshPanelUI();
+
+                // Brief shake on disable
+                if (!isEnabled) {
+                    const card = panel.querySelector('.lf-card');
+                    card?.classList.add('lf-shake');
+                    setTimeout(() => card?.classList.remove('lf-shake'), 400);
+                }
+            });
+
+            makeDraggable(panel);
+        }
+
+        const root = document.body || document.documentElement;
+        if (!panelMounted || !root.contains(panel)) {
+            root.appendChild(panel);
+            panelMounted = true;
+        }
+        refreshPanelUI();
+    };
+
+    const refreshPanelUI = () => {
+        if (!panel) return;
+        const stateClass = isEnabled ? 'lf-on' : 'lf-off';
+        const icon = isEnabled ? '🔓' : '🔒';
+        const badgeLabel = FORMAT_LABELS[copyFormat] || copyFormat.toUpperCase();
+
+        panel.innerHTML = `
+            <div class="lf-card ${stateClass}">
+                <div class="lf-orb-wrap">
+                    <div class="lf-orb ${stateClass}">${icon}</div>
+                </div>
+                <div class="lf-text">
+                    <span class="lf-label">${isEnabled ? t.on : t.off}</span>
+                    <span class="lf-sub">${isEnabled ? t.subOn : t.subOff}</span>
+                </div>
+                <div class="lf-badge">${badgeLabel}</div>
+            </div>
+        `;
+    };
+
+    // =====================
+    // Tampermonkey menu
+    // =====================
+    GM_registerMenuCommand(t.menuToggle, () => {
+        isEnabled = !isEnabled;
+        GM_setValue(CONFIG.ENABLED, isEnabled);
+        updateFunctionalState(isEnabled);
+        refreshPanelUI();
+    });
+
+    GM_registerMenuCommand(t.menuBtn, () => {
+        showBtn = !showBtn;
+        GM_setValue(CONFIG.SHOW_BTN, showBtn);
+        renderPanel();
+    });
+
+    GM_registerMenuCommand(t.menuFormat(copyFormat), () => {
+        const idx = FORMAT_CYCLE.indexOf(copyFormat);
+        copyFormat = FORMAT_CYCLE[(idx + 1) % FORMAT_CYCLE.length];
+        GM_setValue(CONFIG.FORMAT, copyFormat);
+        refreshPanelUI();
+        showBubble('ok', `Format → ${FORMAT_LABELS[copyFormat]}`);
+    });
+
+    // =====================
+    // Bootstrap
+    // =====================
+    updateFunctionalState(isEnabled);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', renderPanel);
     } else {
-        button && button.parentNode && button.parentNode.removeChild(button);
+        renderPanel();
     }
-});
-
-// 设置复制格式
-GM_registerMenuCommand(t('setCopyFormat'), () => {
-    const options = ['text', 'html', 'link'];
-    const copyFormat = prompt(t('copyFormatPrompt'), copyState.copyFormat);
-    if (options.includes(copyFormat)) {
-        copyState.copyFormat = copyFormat;
-        GM_setValue('copyFormat', copyState.copyFormat);
-    } else {
-        alert(t('invalidCopyFormatAlert'));
-    }
-});
-
-/******** 脚本初始化 ********/
-// 延迟按钮创建，确保 DOM 已加载
-if (copyState.showButton && !websiteRuleWenku.regexp.test(window.location.href)) {
-    window.addEventListener('DOMContentLoaded', () => {
-        // 创建并添加按钮到页面
-        if (!button) {
-            button = createButton();
-            copyState.button = button;
-        }
-        if (button && !document.body.contains(button)) {
-            document.body.appendChild(button);
-        }
-    });
-}
-
-// 初始状态：禁用自动复制功能
-disableCopy();
-
 })();
