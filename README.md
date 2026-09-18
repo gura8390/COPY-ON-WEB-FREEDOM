@@ -45,7 +45,7 @@ Auto Copy Selected Text and Remove Copy Restrictions
 - 安装后右下角会出现一个小控制面板
 - **点击面板** → 开/关整个功能
 - **拖动面板** → 移动位置（自动保存）
-- **右键 Tampermonkey 图标 → 用户脚本命令** 可快速：
+- **通过 Tampermonkey 菜单** 可快速：
   - 功能启用/停用
   - 面板显示/隐藏
   - 复制格式循环切换（TXT → URL → HTML）
