@@ -431,6 +431,18 @@
         }
     `);
 
+    const forceUnlockStyle = (active) => {
+        const el = document.documentElement;
+        if (!el) return;
+        if (active) {
+            el.style.setProperty('user-select', 'auto', 'important');
+            el.style.setProperty('-webkit-user-select', 'auto', 'important');
+        } else {
+            el.style.removeProperty('user-select');
+            el.style.removeProperty('-webkit-user-select');
+        }
+    };
+
     // =====================
     // Copy-feedback bubble (lives inside the panel card, floats above it)
     // =====================
@@ -504,7 +516,7 @@
     // Core restriction-removal
     // =====================
     const eventsToBlock = ['contextmenu', 'copy', 'selectstart', 'cut', 'dragstart'];
-    const preventAction = (e) => { if (isEnabled) e.stopPropagation(); };
+    const preventAction = (e) => { if (isEnabled) e.stopImmediatePropagation(); };
     let copyTimer = null;
 
     const mouseUpListener = (e) => {
@@ -535,10 +547,12 @@
         const html = document.documentElement;
         if (active) {
             html.classList.add('lf-unlocked');
+            forceUnlockStyle(active);
             eventsToBlock.forEach(ev => document.addEventListener(ev, preventAction, true));
             document.addEventListener('mouseup', mouseUpListener);
         } else {
             html.classList.remove('lf-unlocked');
+            forceUnlockStyle(active);
             eventsToBlock.forEach(ev => document.removeEventListener(ev, preventAction, true));
             document.removeEventListener('mouseup', mouseUpListener);
         }
