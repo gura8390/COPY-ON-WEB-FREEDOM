@@ -36,7 +36,7 @@ Auto Copy Selected Text and Remove Copy Restrictions
    - Firefox：[Tampermonkey](https://addons.mozilla.org/firefox/addon/tampermonkey/)
 
 2. 点击下面链接直接安装最新版（v5.2）：
-   https://update.greasyfork.org/scripts/497808/%E8%87%AA%E5%8A%A8%E5%A4%8D%E5%88%B6%E9%80%89%E4%B8%AD%E6%96%87%E6%9C%AC%E5%92%8C%E8%A7%A3%E9%99%A4%E5%A4%8D%E5%88%B6%E9%99%90%E5%88%B6.user.js
+   [安装用户脚本](https://greasyfork.org/zh-CN/scripts/497808)
 
 3. Greasy Fork 页面（可看历史版本、反馈）：  
    https://greasyfork.org/zh-CN/scripts/497808
@@ -81,7 +81,7 @@ It provides a small draggable panel at the bottom-right corner for toggling feat
    - Firefox: https://addons.mozilla.org/firefox/addon/tampermonkey/
 
 2. Install the script directly:  
-   https://update.greasyfork.org/scripts/497808/%E8%87%AA%E5%8A%A8%E5%A4%8D%E5%88%B6%E9%80%89%E4%B8%AD%E6%96%87%E6%9C%AC%E5%92%8C%E8%A7%A3%E9%99%A4%E5%A4%8D%E5%88%B6%E9%99%90%E5%88%B6.user.js
+   [安装用户脚本](https://greasyfork.org/zh-CN/scripts/497808)
 
 3. Greasy Fork page:  
    https://greasyfork.org/en/scripts/497808
@@ -99,3 +99,10 @@ It provides a small draggable panel at the bottom-right corner for toggling feat
 - Replaced fixed toast with speech-bubble anchored above panel
 - Full UI redesign: glassmorphism, amber-gold theme, ripple click, entrance animations
 - Bubble shows green (success) or red (fail) state, auto-dismiss after 1.6s
+
+
+## 仓库导航 / Repository
+
+当前脚本头版本为 **5.2**，源文件见 [用户脚本](%E8%87%AA%E5%8A%A8%E5%A4%8D%E5%88%B6%E9%80%89%E4%B8%AD%E6%96%87%E6%9C%AC%E5%92%8C%E8%A7%A3%E9%99%A4%E5%A4%8D%E5%88%B6%E9%99%90%E5%88%B6%E6%8C%89%E9%92%AE.JS)。[Greasy Fork](https://greasyfork.org/zh-CN/scripts/497808) 提供安装与历史版本入口。GitHub 快照与 Greasy Fork 的后续版本可能不同，以各自版本信息为准。
+
+保留脚本中的作者署名和依赖许可；本项目许可见 [LICENSE](LICENSE)。
